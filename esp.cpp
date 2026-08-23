@@ -2,7 +2,6 @@
 #include <ArduinoJson.h>
 #include <Wire.h>
 #include <DHT.h>
-#include <TinyGPSPlus.h>
 #include <BH1750.h>
 #include <MPU6050.h>
 #include <math.h>
@@ -11,7 +10,6 @@
 #define PIN_DHT        4
 #define PIN_RAIN       5
 #define PIN_MQ135      34   // input-only, ADC1
-#define PIN_VIBRATION  35   // input-only
 #define PIN_BUTTON     25   // MUST wire to GND when pressed (INPUT_PULLUP).
                             // NEVER connect this pin to any external voltage
                             // rail (5V/12V) - GPIO max safe input is ~3.6V.
@@ -19,8 +17,6 @@
 #define PIN_LED_RED    26
 #define PIN_LED_BLUE   27
 #define PIN_LED_AMBER  14
-#define PIN_GPS_RX     16
-#define PIN_GPS_TX     17
 #define PIN_LED_WHITE  13
 #define PIN_I2C_SCL    22
 #define PIN_I2C_SDA    21
@@ -40,19 +36,14 @@
 
 // ── OBJECTS ─────────────────────────────
 DHT         dht(PIN_DHT, DHT22);
-TinyGPSPlus gps;
-HardwareSerial gpsSerial(1);
 BH1750      lightMeter;
 MPU6050     mpu;
 
 // ── SENSOR STATE ────────────────────────
 float temp      = 25.0, hum = 50.0;
-float lat       = 13.0827, lon = 80.2707;
-int   gps_fix   = 0;
 int   rain      = 0;
 int   aqi       = 0;
 float lux       = 0;
-int   vib       = 0;
 float acc_total = 9.8;
 int   count_in  = 0, count_out = 0;
 float speed_kmh = 0;
@@ -201,16 +192,13 @@ void send_json() {
   doc["lamp"] = LAMP_ID;
   doc["t"]    = millis();
 
-  JsonObject g = doc.createNestedObject("gps");
-  g["lat"] = lat; g["lon"] = lon; g["fix"] = gps_fix;
-
   JsonObject e = doc.createNestedObject("env");
   e["temp"] = temp; e["hum"] = hum; e["rain"] = rain;
   e["aqi"]  = aqi;
   e["ldr"]  = (int)lux;
 
   JsonObject m = doc.createNestedObject("motion");
-  m["vib"] = vib; m["acc"] = acc_total; m["pir"] = 1;
+  m["acc"] = acc_total; m["pir"] = 1;
 
   JsonObject t = doc.createNestedObject("traffic");
   t["count_in"] = count_in; t["count_out"] = count_out;
@@ -238,7 +226,6 @@ void setup() {
   delay(2000);
   Serial.println("MargRaksha ESP32 Booting...");
 
-  gpsSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
   Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
   Wire.setTimeOut(1000);
 
@@ -252,7 +239,6 @@ void setup() {
   else Serial.println("MPU6050 not found");
 
   pinMode(PIN_RAIN,      INPUT);
-  pinMode(PIN_VIBRATION, INPUT);
   pinMode(PIN_BUTTON,    INPUT_PULLUP);
   pinMode(PIN_LED_WHITE, OUTPUT);
   pinMode(PIN_LED_RED,   OUTPUT);
@@ -309,7 +295,6 @@ void loop() {
 
   rain = digitalRead(PIN_RAIN) == LOW ? 1 : 0;
   aqi  = analogRead(PIN_MQ135);
-  vib  = digitalRead(PIN_VIBRATION);
 
   static bool last_button_state = HIGH;
   bool button_state = digitalRead(PIN_BUTTON);
@@ -325,27 +310,6 @@ void loop() {
   if (now - last_led > 1000) {
     update_leds_smart();
     last_led = now;
-  }
-
-  while (gpsSerial.available()) gps.encode(gpsSerial.read());
-  if (gps.location.isValid()) {
-    lat = gps.location.lat();
-    lon = gps.location.lng();
-    gps_fix = 1;
-  }
-
-  static unsigned long last_gps_debug = 0;
-  if (now - last_gps_debug > 5000) {
-    last_gps_debug = now;
-    Serial.print("[GPS DEBUG] chars=");
-    Serial.print(gps.charsProcessed());
-    Serial.print(" sentencesWithFix=");
-    Serial.print(gps.sentencesWithFix());
-    Serial.print(" satellites=");
-    Serial.println(gps.satellites.isValid() ? gps.satellites.value() : -1);
-    if (gps.charsProcessed() < 10) {
-      Serial.println("[GPS DEBUG] No data received - check wiring/TX-RX swap/power.");
-    }
   }
 
   if (Serial.available()) {
