@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MargRaksha V2 - Road Safety Intelligence</title>
+<style>
+:root {
+  --bg:       #080c18;
+  --bg2:      #0d1220;
+  --bg3:      #111827;
+  --border:   #1e2d42;
+  --accent:   #00d4ff;
+  --green:    #00e676;
+  --red:      #ff3d3d;
+  --amber:    #ffab00;
+  --purple:   #b388ff;
+  --text:     #cdd6f4;
+  --muted:    #6b7280;
+  --glow:     0 0 18px rgba(0,212,255,0.25);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh;
+  padding: 14px;
+  overflow-x: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding: 10px 16px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.header-left { display: flex; align-items: center; gap: 12px; }
+.logo {
+  width: 36px; height: 36px; border-radius: 8px;
+  background: linear-gradient(135deg, #00d4ff, #0066ff);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; font-weight: 700; color: #001018;
+}
+.header h1 { font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+.header p  { font-size: 0.72rem; color: var(--muted); }
+.header-right { display: flex; align-items: center; gap: 16px; }
+.status-pill {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  font-size: 0.75rem;
+}
+.pulse-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green);
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+
+#alert-banner {
+  display: none;
+  background: linear-gradient(90deg, #ff1a1a18, #ff1a1a08);
+  border: 1px solid var(--red);
+  border-radius: 10px;
+  padding: 12px 18px;
+  margin-bottom: 14px;
+  align-items: center; gap: 12px;
+  animation: alertPulse 1s infinite;
+}
+#alert-banner.hidden { display: none; }
+#alert-banner .alert-icon { font-size: 0.85rem; font-weight: 700; color: var(--red); }
+#alert-banner .alert-text { flex: 1; }
+#alert-banner .alert-title { color: var(--red); font-weight: 700; font-size: 1rem; }
+#alert-banner .alert-sub   { color: #ff9999; font-size: 0.78rem; margin-top: 2px; }
+@keyframes alertPulse {
+  0%,100%{ border-color: #ff3d3d; box-shadow: 0 0 0 0 rgba(255,61,61,0.3); }
+  50%    { border-color: #ff6666; box-shadow: 0 0 0 6px rgba(255,61,61,0); }
+}
+
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  grid-template-rows: auto auto;
+  gap: 12px;
+}
+@media (max-width: 900px) {
+  .main-grid { grid-template-columns: 1fr; }
+}
+
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.4;
+}
+.card h3 {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 12px;
+  display: flex; align-items: center; gap: 6px;
+}
+.card h3 span { font-size: 0.68rem; color: var(--accent); }
+
+.cam-panel {
+  grid-column: 1;
+  grid-row: 1 / 3;
+}
+.cam-wrapper {
+  position: relative;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  aspect-ratio: 16/9;
+}
+#cam-feed {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.cam-overlay {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+}
+.cam-badge {
+  position: absolute; top: 8px; left: 8px;
+  background: rgba(0,0,0,0.7);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 0.7rem;
+  color: var(--accent);
+  display: flex; align-items: center; gap: 4px;
+}
+.cam-rec-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--red);
+  animation: pulse 1s infinite;
+}
+.detection-boxes {
+  position: absolute; top: 8px; right: 8px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.det-badge {
+  padding: 2px 8px; border-radius: 4px;
+  font-size: 0.68rem; font-weight: 600;
+  display: none;
+}
+.det-badge.show { display: block; }
+.det-accident { background: rgba(255,61,61,0.85); color: #fff; }
+.det-helmet   { background: rgba(255,171,0,0.85);  color: #000; }
+.det-drunk    { background: rgba(179,136,255,0.85);color: #000; }
+.det-pothole  { background: rgba(0,230,118,0.85);  color: #000; }
+
+.cam-info {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+.cam-stat {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: center;
+}
+.cam-stat .cs-val {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--accent);
+  display: block;
+}
+.cam-stat .cs-lbl {
+  font-size: 0.65rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.right-panel {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid #1a2030;
+  font-size: 0.82rem;
+}
+.metric-row:last-child { border-bottom: none; }
+.metric-label { color: var(--muted); }
+.metric-val   { font-weight: 600; color: var(--text); }
+.metric-val.green  { color: var(--green); }
+.metric-val.red    { color: var(--red); }
+.metric-val.amber  { color: var(--amber); }
+.metric-val.accent { color: var(--accent); }
+.metric-val.purple { color: var(--purple); }
+
+.gauge-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.gauge {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.gauge .g-val {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.gauge .g-lbl {
+  font-size: 0.65rem;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.gauge-bar {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+.gauge-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #0066ff);
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+.led-display {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px;
+  background: var(--bg3);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.led-circle {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 12px #fff;
+  transition: all 0.4s ease;
+  flex-shrink: 0;
+}
+.led-info .led-name  { font-size: 0.9rem; font-weight: 600; }
+.led-info .led-sub   { font-size: 0.72rem; color: var(--muted); }
+
+.event-log {
+  max-height: 180px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.event-item {
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 5px 0;
+  border-bottom: 1px solid #141c2a;
+  font-size: 0.75rem;
+}
+.event-item:last-child { border-bottom: none; }
+.event-time  { color: var(--muted); flex-shrink: 0; }
+.event-type  { flex-shrink: 0; padding: 1px 5px; border-radius: 3px; font-weight: 600; font-size: 0.68rem; }
+.et-INFO    { background: #0066ff22; color: #4da6ff; }
+.et-WARNING { background: #ffab0022; color: var(--amber); }
+.et-ERROR   { background: #ff3d3d22; color: var(--red); }
+.event-msg  { color: var(--text); line-height: 1.3; }
+
+.bottom-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+.strip-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex; align-items: center; gap: 10px;
+}
+.strip-icon {
+  width: 36px; height: 36px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.85rem; font-weight: 700; flex-shrink: 0;
+}
+.si-blue   { background: rgba(0,212,255,0.12); color: var(--accent); }
+.si-green  { background: rgba(0,230,118,0.12); color: var(--green); }
+.si-red    { background: rgba(255,61,61,0.12); color: var(--red); }
+.si-amber  { background: rgba(255,171,0,0.12); color: var(--amber); }
+.strip-info .s-val { font-size: 1.25rem; font-weight: 700; color: var(--text); }
+.strip-info .s-lbl { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; }
+
+.gps-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  color: var(--accent); text-decoration: none;
+  font-size: 0.75rem; margin-top: 6px;
+  padding: 3px 8px; border: 1px solid var(--accent);
+  border-radius: 4px; transition: background 0.2s;
+}
+.gps-link:hover { background: rgba(0,212,255,0.1); }
+.gps-link.disabled {
+  color: var(--muted); border-color: var(--border);
+  pointer-events: none; opacity: 0.6;
+}
+
+.detect-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.detect-card {
+  padding: 10px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-align: center;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.detect-card.active-alert {
+  border-color: var(--red);
+  box-shadow: 0 0 12px rgba(255,61,61,0.2);
+}
+.detect-card .dc-val  { font-size: 0.8rem; font-weight: 700; }
+.detect-card .dc-lbl  { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <div class="logo">MR</div>
+    <div>
+      <h1>MargRaksha V2</h1>
+      <p>Road Safety Intelligence System &nbsp;|&nbsp; <span id="lamp-id-hdr">LAMP_001</span></p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="status-pill">
+      <div class="pulse-dot" id="system-dot"></div>
+      <span id="system-status">ONLINE</span>
+    </div>
+    <div class="status-pill" style="color:var(--muted)">
+      <span id="hdr-time">--:--:--</span>
+    </div>
+    <div class="status-pill">
+      <span id="hdr-cpu">CPU --</span>
+    </div>
+  </div>
+</div>
+
+<!-- Alert Banner -->
+<div id="alert-banner" class="hidden">
+  <div class="alert-icon">ALERT</div>
+  <div class="alert-text">
+    <div class="alert-title" id="alert-title">ALERT ACTIVE</div>
+    <div class="alert-sub"  id="alert-sub">--</div>
+  </div>
+  <div style="color:var(--red);font-size:0.75rem" id="alert-time">--</div>
+</div>
+
+<!-- Main Grid -->
+<div class="main-grid">
+
+  <!-- Camera Panel -->
+  <div class="card cam-panel">
+    <h3>Live Camera Feed</h3>
+    <div class="cam-wrapper">
+      <img id="cam-feed" src="/api/stream" alt="Camera offline">
+      <div class="cam-overlay">
+        <div class="cam-badge">
+          <div class="cam-rec-dot"></div>
+          LIVE
+        </div>
+        <div class="detection-boxes">
+          <div class="det-badge det-accident" id="det-accident">ACCIDENT</div>
+          <div class="det-badge det-helmet"   id="det-helmet">NO HELMET</div>
+          <div class="det-badge det-drunk"    id="det-drunk">ERRATIC DRIVING</div>
+          <div class="det-badge det-pothole"  id="det-pothole">POTHOLE</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+      <div style="background:#000;border-radius:6px;overflow:hidden;position:relative;aspect-ratio:16/9">
+        <img src="/api/stream/webcam" style="width:100%;height:100%;object-fit:cover;display:block" alt="Webcam offline">
+        <div id="webcam-badge" style="position:absolute;top:4px;left:4px;font-size:0.65rem;padding:2px 6px;border-radius:4px;background:rgba(0,0,0,0.7);color:var(--muted)">WEBCAM</div>
+      </div>
+      <div style="background:#000;border-radius:6px;overflow:hidden;position:relative;aspect-ratio:16/9">
+        <img src="/api/stream/espcam" style="width:100%;height:100%;object-fit:cover;display:block" alt="ESP32-CAM offline">
+        <div id="espcam-badge" style="position:absolute;top:4px;left:4px;font-size:0.65rem;padding:2px 6px;border-radius:4px;background:rgba(0,0,0,0.7);color:var(--muted)">ESP32-CAM</div>
+      </div>
+    </div>
+
+    <div class="cam-info">
+      <div class="cam-stat">
+        <span class="cs-val" id="cam-persons">0</span>
+        <span class="cs-lbl">Persons</span>
+      </div>
+      <div class="cam-stat">
+        <span class="cs-val" id="cam-vehicles">0</span>
+        <span class="cs-lbl">Vehicles</span>
+      </div>
+      <div class="cam-stat">
+        <span class="cs-val" id="cam-speed">0</span>
+        <span class="cs-lbl">km/h Max</span>
+      </div>
+      <div class="cam-stat">
+        <span class="cs-val" id="cam-conf">0%</span>
+        <span class="cs-lbl">AI Conf.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="right-panel">
+
+    <!-- Environment -->
+    <div class="card">
+      <h3>Environment</h3>
+      <div class="gauge-row">
+        <div class="gauge">
+          <div class="g-val" id="env-temp">--</div>
+          <div class="g-lbl">Temperature</div>
+          <div class="gauge-bar"><div class="gauge-fill" id="bar-temp" style="width:50%"></div></div>
+        </div>
+        <div class="gauge">
+          <div class="g-val" id="env-hum">--</div>
+          <div class="g-lbl">Humidity</div>
+          <div class="gauge-bar"><div class="gauge-fill" id="bar-hum" style="width:50%"></div></div>
+        </div>
+        <div class="gauge">
+          <div class="g-val" id="env-aqi">--</div>
+          <div class="g-lbl">AQI</div>
+          <div class="gauge-bar"><div class="gauge-fill" id="bar-aqi" style="width:20%;background:linear-gradient(90deg,#00e676,#ffab00)"></div></div>
+        </div>
+        <div class="gauge">
+          <div class="g-val" id="env-lux">--</div>
+          <div class="g-lbl">Lux</div>
+          <div class="gauge-bar"><div class="gauge-fill" id="bar-lux" style="width:30%"></div></div>
+        </div>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Rain</span>
+        <span class="metric-val" id="env-rain">--</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">GPS Location</span>
+        <span class="metric-val accent" id="env-gps">--</span>
+      </div>
+      <a class="gps-link" id="gps-maps-link" href="#" target="_blank">
+        Open in Maps
+      </a>
+    </div>
+
+    <!-- Detection -->
+    <div class="card">
+      <h3>AI Detection</h3>
+      <div class="detect-grid">
+        <div class="detect-card" id="dc-accident">
+          <div class="dc-val" id="dc-acc-val">CLEAR</div>
+          <div class="dc-lbl">Accident</div>
+        </div>
+        <div class="detect-card" id="dc-helmet">
+          <div class="dc-val" id="dc-helm-val">OK</div>
+          <div class="dc-lbl">Helmet</div>
+        </div>
+        <div class="detect-card" id="dc-drunk">
+          <div class="dc-val" id="dc-drunk-val">NORMAL</div>
+          <div class="dc-lbl">Drunk Drive</div>
+        </div>
+        <div class="detect-card" id="dc-pothole">
+          <div class="dc-val" id="dc-pot-val">CLEAR</div>
+          <div class="dc-lbl">Pothole</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LED + System -->
+    <div class="card">
+      <h3>Street Light</h3>
+      <div class="led-display">
+        <div class="led-circle" id="led-circle"></div>
+        <div class="led-info">
+          <div class="led-name" id="led-color-name">WHITE</div>
+          <div class="led-sub">Brightness: <span id="led-brightness">--</span></div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div style="font-size:0.72rem;color:var(--muted)">SOS</div>
+          <div class="metric-val" id="sos-status" style="font-size:0.85rem">NONE</div>
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <div class="metric-row">
+          <span class="metric-label">Sensor Node</span>
+          <span class="metric-val" id="sensor-alive">--</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">CPU</span>
+          <span class="metric-val" id="sys-cpu">--</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">RAM</span>
+          <span class="metric-val" id="sys-ram">--</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">CPU Temp</span>
+          <span class="metric-val" id="sys-ctemp">--</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /right-panel -->
+</div><!-- /main-grid -->
+
+<!-- Bottom Strip -->
+<div class="bottom-strip">
+  <div class="strip-card">
+    <div class="strip-icon si-blue">V</div>
+    <div class="strip-info">
+      <div class="s-val" id="strip-count">0</div>
+      <div class="s-lbl">Vehicles Detected</div>
+    </div>
+  </div>
+  <div class="strip-card">
+    <div class="strip-icon si-amber">S</div>
+    <div class="strip-info">
+      <div class="s-val" id="strip-speed">0 km/h</div>
+      <div class="s-lbl">Max Speed</div>
+    </div>
+  </div>
+  <div class="strip-card">
+    <div class="strip-icon si-red">A</div>
+    <div class="strip-info">
+      <div class="s-val" id="strip-alerts">0</div>
+      <div class="s-lbl">Alerts Today</div>
+    </div>
+  </div>
+  <div class="strip-card">
+    <div class="strip-icon si-green">G</div>
+    <div class="strip-info">
+      <div class="s-val" id="strip-gps">--</div>
+      <div class="s-lbl">GPS Fix</div>
+    </div>
+  </div>
+</div>
+
+<!-- Event Log -->
+<div class="card" style="margin-top:12px">
+  <h3>Live Event Log</h3>
+  <div class="event-log" id="event-log">
+    <div class="event-item">
+      <span class="event-time">--:--:--</span>
+      <span class="event-type et-INFO">INFO</span>
+      <span class="event-msg">Waiting for events...</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const LED_COLORS = {
+  white:"#ffffff", red:"#ff3d3d",
+  blue:"#00d4ff",  amber:"#ffab00", off:"#222"
+};
+const LED_GLOW = {
+  white:"0 0 20px rgba(255,255,255,0.5)",
+  red:  "0 0 20px rgba(255,61,61,0.7)",
+  blue: "0 0 20px rgba(0,212,255,0.6)",
+  amber:"0 0 20px rgba(255,171,0,0.6)",
+  off:  "none"
+};
+let alertCount = 0;
+
+function updateClock() {
+  document.getElementById("hdr-time").textContent =
+    new Date().toLocaleTimeString("en-IN");
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+function el(id) { return document.getElementById(id); }
+function setVal(id, v){ const e = el(id); if(e) e.textContent = v; }
+
+function showAlert(title, sub) {
+  const b = el("alert-banner");
+  b.classList.remove("hidden");
+  el("alert-title").textContent = title;
+  el("alert-sub").textContent   = sub;
+  el("alert-time").textContent  = new Date().toLocaleTimeString();
+  document.title = "ALERT: " + title + " - MargRaksha";
+  alertCount++;
+  setVal("strip-alerts", alertCount);
+}
+function hideAlert() {
+  el("alert-banner").classList.add("hidden");
+  document.title = "MargRaksha V2 - Road Safety Intelligence";
+}
+
+async function refresh() {
+  try {
+    const res = await fetch("/api/data");
+    const d   = await res.json();
+    const h   = d.health    || {};
+    const env = d.env       || {};
+    const tr  = d.traffic   || {};
+    const det = d.detection || {};
+    const led = d.led       || {};
+    const gps = d.gps       || {};
+
+    setVal("lamp-id-hdr", d.lamp_id || "LAMP_001");
+    setVal("hdr-cpu",     "CPU " + (h.cpu_percent||0) + "%");
+
+    const alive = d.sensor_alive;
+
+    const cam = d.cam_status || {};
+    const wcBadge = el("webcam-badge");
+    const ecBadge = el("espcam-badge");
+    if(wcBadge) wcBadge.style.color = cam.webcam_online ? "var(--green)" : "var(--red)";
+    if(ecBadge) ecBadge.style.color = cam.espcam_online ? "var(--green)" : "var(--red)";
+
+    const saDot = el("system-dot");
+    if(saDot) saDot.style.background = alive ? "#00e676" : "#ff3d3d";
+    el("system-status").textContent = alive ? "ONLINE" : "SENSOR OFFLINE";
+
+    const temp = (env.temp||0);
+    const hum  = (env.hum||0);
+    const aqi  = (env.aqi||0);
+    const lux  = (env.ldr||0);
+    setVal("env-temp", temp.toFixed(1) + " C");
+    setVal("env-hum",  hum.toFixed(0)  + "%");
+    setVal("env-aqi",  aqi);
+    setVal("env-lux",  lux.toFixed(0)  + " lx");
+    setVal("env-rain", env.rain ? "YES" : "NO");
+    el("bar-temp").style.width = Math.min(100, (temp/60)*100) + "%";
+    el("bar-hum").style.width  = hum + "%";
+    el("bar-aqi").style.width  = Math.min(100, (aqi/500)*100) + "%";
+    el("bar-lux").style.width  = Math.min(100, (lux/1000)*100) + "%";
+
+    const lat = gps.lat || 0;
+    const lon = gps.lon || 0;
+    const hasFix = gps.fix;
+    setVal("env-gps", hasFix ? lat.toFixed(5) + ", " + lon.toFixed(5) : "No Fix");
+    setVal("strip-gps", hasFix ? "LOCKED" : "NO FIX");
+    const mapsLink = el("gps-maps-link");
+    if(hasFix) {
+      mapsLink.href = `https://maps.google.com/?q=${lat},${lon}`;
+      mapsLink.classList.remove("disabled");
+    } else {
+      mapsLink.classList.add("disabled");
+    }
+
+    setVal("cam-vehicles", det.vehicle_count || 0);
+    setVal("cam-persons",  det.person_count  || 0);
+    setVal("cam-speed",    (tr.speed||0).toFixed(0));
+    setVal("cam-conf",     ((det.confidence||0)*100).toFixed(0) + "%");
+    setVal("strip-count",  (tr.count_in||0));
+    setVal("strip-speed",  (tr.speed||0).toFixed(0) + " km/h");
+
+    function toggleDet(id, show) {
+      const e = el(id);
+      if(e) { if(show) e.classList.add("show"); else e.classList.remove("show"); }
+    }
+    toggleDet("det-accident", det.accident);
+    toggleDet("det-helmet",   det.helmet_violation);
+    toggleDet("det-drunk",    det.drunk_driving);
+    toggleDet("det-pothole",  det.pothole);
+
+    function detCard(cardId, valId, active, trueText, falseText) {
+      const card = el(cardId);
+      const val  = el(valId);
+      if(!card || !val) return;
+      val.textContent = active ? trueText : falseText;
+      val.style.color = active ? "var(--red)" : "var(--green)";
+      if(active) card.classList.add("active-alert");
+      else       card.classList.remove("active-alert");
+    }
+    detCard("dc-accident","dc-acc-val",  det.accident,       "DETECTED","CLEAR");
+    detCard("dc-helmet",  "dc-helm-val", det.helmet_violation,"VIOLATION","OK");
+    detCard("dc-drunk",   "dc-drunk-val",det.drunk_driving,  "DETECTED","NORMAL");
+    detCard("dc-pothole", "dc-pot-val",  det.pothole,        "DETECTED","CLEAR");
+
+    const color = (led.color||"white").toLowerCase();
+    const ledCircle = el("led-circle");
+    if(ledCircle) {
+      ledCircle.style.background  = LED_COLORS[color] || "#fff";
+      ledCircle.style.boxShadow   = LED_GLOW[color]   || "none";
+    }
+    setVal("led-color-name", color.toUpperCase());
+    setVal("led-brightness",  led.white || led.brightness || 0);
+
+    const sosEl = el("sos-status");
+    if(sosEl) {
+      sosEl.textContent = d.sos ? "ACTIVE" : "NONE";
+      sosEl.style.color = d.sos ? "var(--red)" : "var(--green)";
+    }
+
+    setVal("sensor-alive", alive ? "ONLINE" : "OFFLINE");
+    el("sensor-alive").style.color = alive ? "var(--green)" : "var(--red)";
+    setVal("sys-cpu",   (h.cpu_percent||0) + "%");
+    setVal("sys-ram",   (h.ram_percent||0) + "%");
+    setVal("sys-ctemp", (h.cpu_temp||0).toFixed(1) + " C");
+
+    const alr = d.alr || 0;
+    if(det.accident)         showAlert("ACCIDENT DETECTED",      "Camera AI confirmed - Police + Hospital alerted");
+    else if(d.sos)           showAlert("SOS EMERGENCY",          "Button pressed - Control room notified");
+    else if(det.drunk_driving) showAlert("ERRATIC DRIVING",      "Possible drunk driver detected");
+    else if(det.helmet_violation) showAlert("HELMET VIOLATION",  "Plate captured - Fine alert sent");
+    else if(alr & 0x01)     showAlert("SPEED VIOLATION",         "Vehicle exceeded " + (tr.speed||0).toFixed(0) + " km/h");
+    else hideAlert();
+
+  } catch(e) {
+    console.error("Data refresh error:", e);
+  }
+}
+
+async function refreshEvents() {
+  try {
+    const res    = await fetch("/api/events");
+    const events = await res.json();
+    const log    = el("event-log");
+    if(!events || events.length === 0) return;
+    log.innerHTML = events.map(ev => `
+      <div class="event-item">
+        <span class="event-time">${ev.time}</span>
+        <span class="event-type et-${ev.severity}">${ev.severity}</span>
+        <span class="event-msg">${ev.type}: ${ev.message}</span>
+      </div>
+    `).join("");
+  } catch(e) {}
+}
+
+refresh();
+refreshEvents();
+setInterval(refresh,       2000);
+setInterval(refreshEvents, 3000);
+</script>
+</body>
+</html>
